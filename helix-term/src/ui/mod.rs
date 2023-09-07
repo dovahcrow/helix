@@ -177,6 +177,9 @@ pub fn file_picker(root: PathBuf, config: &helix_view::editor::Config) -> Picker
         .max_depth(config.file_picker.max_depth)
         .filter_entry(move |entry| filter_picker_entry(entry, &absolute_root, dedup_symlinks));
 
+    walk_builder.add_custom_ignore_filename(helix_loader::config_dir().join("ignore"));
+    walk_builder.add_custom_ignore_filename(".helix/ignore");
+
     // We want to exclude files that the editor can't handle yet
     let mut type_builder = TypesBuilder::new();
     type_builder
@@ -190,7 +193,7 @@ pub fn file_picker(root: PathBuf, config: &helix_view::editor::Config) -> Picker
         .build()
         .expect("failed to build excluded_types");
     walk_builder.types(excluded_types);
-    let files = walk_builder.build().filter_map(|entry| {
+    let mut files = walk_builder.build().filter_map(|entry| {
         let entry = entry.ok()?;
         if !entry.file_type()?.is_file() {
             return None;
@@ -211,13 +214,27 @@ pub fn file_picker(root: PathBuf, config: &helix_view::editor::Config) -> Picker
     })
     .with_preview(|_editor, path| Some((path.clone().into(), None)));
     let injector = picker.injector();
-    std::thread::spawn(move || {
-        for file in files {
-            if injector.push(file).is_err() {
-                break;
-            }
+    let timeout = std::time::Instant::now() + std::time::Duration::from_millis(30);
+
+    let mut hit_timeout = false;
+    for file in &mut files {
+        if injector.push(file).is_err() {
+            break;
         }
-    });
+        if std::time::Instant::now() >= timeout {
+            hit_timeout = true;
+            break;
+        }
+    }
+    if hit_timeout {
+        std::thread::spawn(move || {
+            for file in files {
+                if injector.push(file).is_err() {
+                    break;
+                }
+            }
+        });
+    }
     picker
 }
 
@@ -392,7 +409,7 @@ pub mod completers {
         use std::path::Path;
 
         let is_tilde = input == "~";
-        let path = helix_core::path::expand_tilde(Path::new(input));
+        let path = helix_stdx::path::expand_tilde(Path::new(input));
 
         let (dir, file_name) = if input.ends_with(std::path::MAIN_SEPARATOR) {
             (path, None)
@@ -413,7 +430,7 @@ pub mod completers {
                 match path.parent() {
                     Some(path) if !path.as_os_str().is_empty() => path.to_path_buf(),
                     // Path::new("h")'s parent is Some("")...
-                    _ => helix_loader::current_working_dir(),
+                    _ => helix_stdx::env::current_working_dir(),
                 }
             };
 
