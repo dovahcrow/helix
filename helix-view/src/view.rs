@@ -113,6 +113,8 @@ pub struct View {
     pub offset: ViewPosition,
     pub area: Rect,
     pub doc: DocumentId,
+    // If true, greys out the view.
+    pub dimmed: bool,
     pub jumps: JumpList,
     // documents accessed from this view from the oldest one to last viewed one
     pub docs_access_history: Vec<DocumentId>,
@@ -152,6 +154,7 @@ impl View {
                 horizontal_offset: 0,
                 vertical_offset: 0,
             },
+            dimmed: false,
             area: Rect::default(), // will get calculated upon inserting into tree
             jumps: JumpList::new((doc, Selection::point(0))), // TODO: use actual sel
             docs_access_history: Vec::new(),
@@ -422,6 +425,25 @@ impl View {
             text_annotations.add_overlay(labels, style);
         }
 
+        let try_get_style =
+            |scope: &str| theme.and_then(|t| t.find_scope_index(scope)).map(Highlight);
+
+        // Overlays are added from lowest priority to highest, such that higher priority
+        // overlays can overwrite the lower ones.
+        let overlays = &doc.visual_jump_labels[2];
+        if !overlays.is_empty() {
+            text_annotations.add_overlay(overlays, try_get_style("ui.virtual.jump.multi.rest"));
+        }
+        let overlays = &doc.visual_jump_labels[1];
+        if !overlays.is_empty() {
+            text_annotations.add_overlay(overlays, try_get_style("ui.virtual.jump.multi.first"));
+        }
+        let overlays = &doc.visual_jump_labels[0];
+        if !overlays.is_empty() {
+            text_annotations.add_overlay(overlays, try_get_style("ui.virtual.jump.single"));
+        }
+        text_annotations.reset_pos(self.offset.anchor);
+
         let DocumentInlayHints {
             id: _,
             type_inlay_hints,
@@ -434,15 +456,9 @@ impl View {
             None => return text_annotations,
         };
 
-        let type_style = theme
-            .and_then(|t| t.find_scope_index("ui.virtual.inlay-hint.type"))
-            .map(Highlight);
-        let parameter_style = theme
-            .and_then(|t| t.find_scope_index("ui.virtual.inlay-hint.parameter"))
-            .map(Highlight);
-        let other_style = theme
-            .and_then(|t| t.find_scope_index("ui.virtual.inlay-hint"))
-            .map(Highlight);
+        let type_style = try_get_style("ui.virtual.inlay-hint.type");
+        let parameter_style = try_get_style("ui.virtual.inlay-hint.parameter");
+        let other_style = try_get_style("ui.virtual.inlay-hint");
 
         // Overlapping annotations are ignored apart from the first so the order here is not random:
         // types -> parameters -> others should hopefully be the "correct" order for most use cases,

@@ -77,6 +77,12 @@
 "variable.other.member" = "my_brown"
 "warning" = "my_yellow2"
 
+"ui.virtual.jump.single" = { fg = "#ff007c", modifiers = ["bold"] }
+"ui.virtual.jump.multi.first" = { fg = "#00dfff", modifiers = ["bold"] }
+"ui.virtual.jump.multi.rest" = "#2b8db3"
+"ui.virtual.jump.dim" = "#666666"
+
+
 [palette]
 my_black      = "#212121" # Cursorline
 my_brown      = "#cfba8b" # Member variables, Quotes
