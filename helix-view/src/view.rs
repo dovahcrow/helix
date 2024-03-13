@@ -130,6 +130,8 @@ pub struct View {
     pub id: ViewId,
     pub area: Rect,
     pub doc: DocumentId,
+    // If true, greys out the view.
+    pub dimmed: bool,
     pub jumps: JumpList,
     // documents accessed from this view from the oldest one to last viewed one
     pub docs_access_history: Vec<DocumentId>,
@@ -172,6 +174,7 @@ impl View {
         Self {
             id: ViewId::default(),
             doc,
+            dimmed: false,
             area: Rect::default(), // will get calculated upon inserting into tree
             jumps: JumpList::new((doc, Selection::point(0))), // TODO: use actual sel
             docs_access_history: Vec::new(),
@@ -451,6 +454,26 @@ impl View {
                 .map(Highlight);
             text_annotations.add_overlay(labels, style);
         }
+
+        let try_get_style =
+            |scope: &str| theme.and_then(|t| t.find_scope_index(scope)).map(Highlight);
+
+        // Overlays are added from lowest priority to highest, such that higher priority
+        // overlays can overwrite the lower ones.
+        let overlays = &doc.visual_jump_labels[2];
+        if !overlays.is_empty() {
+            text_annotations.add_overlay(overlays, try_get_style("ui.virtual.jump.multi.rest"));
+        }
+        let overlays = &doc.visual_jump_labels[1];
+        if !overlays.is_empty() {
+            text_annotations.add_overlay(overlays, try_get_style("ui.virtual.jump.multi.first"));
+        }
+        let overlays = &doc.visual_jump_labels[0];
+        if !overlays.is_empty() {
+            text_annotations.add_overlay(overlays, try_get_style("ui.virtual.jump.single"));
+        }
+        let view_offset = doc.view_offset(self.id);
+        text_annotations.reset_pos(view_offset.anchor);
 
         if let Some(DocumentInlayHints {
             id: _,
