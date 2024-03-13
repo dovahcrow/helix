@@ -60,6 +60,10 @@
 "ui.virtual.whitespace" = "bogster-base5"
 "ui.virtual.ruler" = { bg = "bogster-base0" }
 "ui.virtual.jump-label" = { fg = "bogster-base0", bg = "bogster-yellow", modifiers = [ "bold" ] }
+"ui.virtual.jump.single" = { fg = "#ff007c", modifiers = ["bold"] }
+"ui.virtual.jump.multi.first" = { fg = "#00dfff", modifiers = ["bold"] }
+"ui.virtual.jump.multi.rest" = "#2b8db3"
+"ui.virtual.jump.dim" = "#666666"
 
 "ui.selection" = { bg = "bogster-base2" }
 "ui.selection.primary" = { bg = "bogster-base3" }
