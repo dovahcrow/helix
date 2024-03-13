@@ -16,7 +16,7 @@ use helix_core::{
         ensure_grapheme_boundary_next_byte, next_grapheme_boundary, prev_grapheme_boundary,
     },
     movement::Direction,
-    syntax::{self, HighlightEvent},
+    syntax::{self, Highlight, HighlightEvent},
     text_annotations::TextAnnotations,
     unicode::width::UnicodeWidthStr,
     visual_offset_from_block, Change, Position, Range, Selection, Transaction,
@@ -126,8 +126,11 @@ impl EditorView {
             line_decorations.push(Box::new(line_decoration));
         }
 
-        let syntax_highlights =
-            Self::doc_syntax_highlights(doc, view.offset.anchor, inner.height, theme);
+        let syntax_highlights = if view.dimmed {
+            Self::dimmed_view(doc, view.offset.anchor, inner.height, theme)
+        } else {
+            Self::doc_syntax_highlights(doc, view.offset.anchor, inner.height, theme)
+        };
 
         let mut overlay_highlights =
             Self::empty_highlight_iter(doc, view.offset.anchor, inner.height);
@@ -142,13 +145,15 @@ impl EditorView {
                 Box::new(syntax::merge(overlay_highlights, overlay_syntax_highlights));
         }
 
-        for diagnostic in Self::doc_diagnostics_highlights(doc, theme) {
-            // Most of the `diagnostic` Vecs are empty most of the time. Skipping
-            // a merge for any empty Vec saves a significant amount of work.
-            if diagnostic.is_empty() {
-                continue;
+        if view.in_visual_jump_mode {
+            for diagnostic in Self::doc_diagnostics_highlights(doc, theme) {
+                // Most of the `diagnostic` Vecs are empty most of the time. Skipping
+                // a merge for any empty Vec saves a significant amount of work.
+                if diagnostic.is_empty() {
+                    continue;
+                }
+                overlay_highlights = Box::new(syntax::merge(overlay_highlights, diagnostic));
             }
-            overlay_highlights = Box::new(syntax::merge(overlay_highlights, diagnostic));
         }
 
         if is_focused {
@@ -355,6 +360,34 @@ impl EditorView {
         let range = Self::viewport_byte_range(text, row, height);
 
         text_annotations.collect_overlay_highlights(range)
+    }
+
+    pub fn dimmed_view(
+        doc: &Document,
+        anchor: usize,
+        height: u16,
+        theme: &Theme,
+    ) -> Box<dyn Iterator<Item = HighlightEvent>> {
+        let Some(highlight) = theme
+            .find_scope_index("ui.virtual.jump.dim")
+            .or_else(|| theme.find_scope_index("comment")) else {
+            // comment style as fallback
+            return Box::new(::std::iter::empty());
+        };
+
+        let text = doc.text().slice(..);
+        let range = Self::viewport_byte_range(text, anchor, height);
+        Box::new(
+            [
+                HighlightEvent::HighlightStart(Highlight(highlight)),
+                HighlightEvent::Source {
+                    start: text.byte_to_char(range.start),
+                    end: text.byte_to_char(range.end),
+                },
+                HighlightEvent::HighlightEnd,
+            ]
+            .into_iter(),
+        )
     }
 
     /// Get highlight spans for document diagnostics
