@@ -207,6 +207,15 @@ pub struct Document {
     // NOTE: ideally this would live on the handler for color swatches. This is blocked on a
     // large refactor that would make `&mut Editor` available on the `DocumentDidChange` event.
     pub color_swatch_controller: TaskController,
+    // `visual_jump_labels` are annotated overlay texts that the user can type, to move the cursor
+    // to the annotated location. It's a single array from logical standpoint, but it's split into
+    // three arrays such that each array corresponds to one highlight. The first array contains
+    // single character jump labels. The second and third arrays collectively represent multi-char
+    // jump labels, but the second one contains the leading (first) character, whereas the third
+    // array contains the remaining characters. The purpose of this is such that the leading
+    // character can be painted differently from the remaining characters.
+    pub visual_jump_labels: [Vec<Overlay>; 3],
+    pub in_visual_jump_mode: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -214,6 +223,15 @@ pub struct DocumentColorSwatches {
     pub color_swatches: Vec<InlineAnnotation>,
     pub colors: Vec<Highlight>,
     pub color_swatches_padding: Vec<InlineAnnotation>,
+    // `visual_jump_labels` are annotated overlay texts that the user can type, to move the cursor
+    // to the annotated location. It's a single array from logical standpoint, but it's split into
+    // three arrays such that each array corresponds to one highlight. The first array contains
+    // single character jump labels. The second and third arrays collectively represent multi-char
+    // jump labels, but the second one contains the leading (first) character, whereas the third
+    // array contains the remaining characters. The purpose of this is such that the leading
+    // character can be painted differently from the remaining characters.
+    pub visual_jump_labels: [Vec<Overlay>; 3],
+    pub in_visual_jump_mode: bool,
 }
 
 /// Inlay hints for a single `(Document, View)` combo.
@@ -719,6 +737,8 @@ impl Document {
             jump_labels: HashMap::new(),
             color_swatches: None,
             color_swatch_controller: TaskController::new(),
+            visual_jump_labels: [vec![], vec![], vec![]],
+            in_visual_jump_mode: false,
         }
     }
 
