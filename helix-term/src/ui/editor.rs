@@ -116,9 +116,12 @@ impl EditorView {
             decorations.add_decoration(line_decoration);
         }
 
-        let syntax_highlighter =
-            Self::doc_syntax_highlighter(doc, view_offset.anchor, inner.height, &loader);
         let mut overlays = Vec::new();
+        let syntax_highlighter = if view.dimmed {
+            Self::dimmed_view(doc, inner.height, &loader)
+        } else {
+            Self::doc_syntax_highlighter(doc, view_offset.anchor, inner.height, &loader)
+        };
 
         overlays.push(Self::overlay_syntax_highlights(
             doc,
@@ -139,7 +142,9 @@ impl EditorView {
             }
         }
 
-        Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
+        if doc.in_visual_jump_mode {
+            Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
+        }
 
         if is_focused {
             if let Some(tabstops) = Self::tabstop_highlights(doc, theme) {
@@ -334,6 +339,24 @@ impl EditorView {
         let range = start..visible_range.end as u32;
 
         Some(syntax.rainbow_highlights(text, theme.rainbow_length(), loader, range))
+    }
+
+    pub fn dimmed_view<'editor>(
+        doc: &'editor Document,
+        height: u16,
+        loader: &'editor syntax::Loader,
+    ) -> Option<syntax::Highlighter<'editor>> {
+        let syntax = doc.syntax()?;
+
+        let text = doc.text().slice(..);
+
+        let row = text.len_chars(); // use the last char to make highlight out the view port
+        let range = Self::viewport_byte_range(text, row, height);
+        let range = range.start as u32..range.end as u32;
+
+        let highlighter = syntax.highlighter(text, loader, range);
+
+        Some(highlighter)
     }
 
     /// Get highlight spans for document diagnostics

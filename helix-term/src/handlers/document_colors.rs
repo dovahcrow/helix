@@ -138,6 +138,7 @@ fn attach_document_colors(
         color_swatches,
         colors,
         color_swatches_padding,
+        ..Default::default()
     });
 }
 
@@ -165,6 +166,7 @@ pub(super) fn register_hooks(handlers: &Handlers) {
             color_swatches,
             colors: _colors,
             color_swatches_padding,
+            ..
         }) = &mut event.doc.color_swatches
         {
             apply_color_swatch_changes(color_swatches);
