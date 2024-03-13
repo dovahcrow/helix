@@ -146,6 +146,10 @@
 "ui.virtual.inlay-hint.parameter" = { fg = "grey-500", modifiers = ["italic"] }
 "ui.virtual.inlay-hint.type" = { fg = "grey-500" }
 "ui.virtual.jump-label" = { fg = "black", bg = "grey-200", modifiers = ["bold" ] }
+"ui.virtual.jump.single" = { fg = "#ff007c", modifiers = ["bold"] }
+"ui.virtual.jump.multi.first" = { fg = "#00dfff", modifiers = ["bold"] }
+"ui.virtual.jump.multi.rest" = "#2b8db3"
+"ui.virtual.jump.dim" = "#666666"
 
 "ui.menu" = { fg = "black", bg = "grey-300" }
 "ui.menu.selected" = { fg = "white", bg = "light-blue" }

@@ -428,6 +428,7 @@ pub struct Config {
     /// Whether to enable Kitty Keyboard Protocol
     pub kitty_keyboard_protocol: KittyKeyboardProtocolConfig,
     pub buffer_picker: BufferPickerConfig,
+    pub jump_mode: JumpModeConfig,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Clone, Copy)]
@@ -477,6 +478,27 @@ impl Default for SmartTabConfig {
         SmartTabConfig {
             enable: true,
             supersede_menu: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+pub struct JumpModeConfig {
+    /// Whether or not to dim the view when in jump mode. Defaults to `true`.
+    pub dim_during_jump: bool,
+    /// How many characters the user should type before labelling the targets.
+    pub num_chars_before_label: u8,
+    /// Keys used in labels. Should be convertible to u8
+    pub jump_keys: String,
+}
+
+impl Default for JumpModeConfig {
+    fn default() -> Self {
+        JumpModeConfig {
+            dim_during_jump: true,
+            num_chars_before_label: 1,
+            jump_keys: String::from("jwetovxqpdygfblzhckisuranm"),
         }
     }
 }
@@ -1146,6 +1168,7 @@ impl Default for Config {
             rainbow_brackets: false,
             kitty_keyboard_protocol: Default::default(),
             buffer_picker: BufferPickerConfig::default(),
+            jump_mode: JumpModeConfig::default(),
         }
     }
 }

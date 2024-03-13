@@ -217,6 +217,15 @@ pub struct Document {
     // of storing a copy on every doc. Then we can remove the surrounding `Arc` and use the
     // `ArcSwap` directly.
     syn_loader: Arc<ArcSwap<syntax::Loader>>,
+    // `visual_jump_labels` are annotated overlay texts that the user can type, to move the cursor
+    // to the annotated location. It's a single array from logical standpoint, but it's split into
+    // three arrays such that each array corresponds to one highlight. The first array contains
+    // single character jump labels. The second and third arrays collectively represent multi-char
+    // jump labels, but the second one contains the leading (first) character, whereas the third
+    // array contains the remaining characters. The purpose of this is such that the leading
+    // character can be painted differently from the remaining characters.
+    pub visual_jump_labels: [Vec<Overlay>; 3],
+    pub in_visual_jump_mode: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -224,6 +233,15 @@ pub struct DocumentColorSwatches {
     pub color_swatches: Vec<InlineAnnotation>,
     pub colors: Vec<syntax::Highlight>,
     pub color_swatches_padding: Vec<InlineAnnotation>,
+    // `visual_jump_labels` are annotated overlay texts that the user can type, to move the cursor
+    // to the annotated location. It's a single array from logical standpoint, but it's split into
+    // three arrays such that each array corresponds to one highlight. The first array contains
+    // single character jump labels. The second and third arrays collectively represent multi-char
+    // jump labels, but the second one contains the leading (first) character, whereas the third
+    // array contains the remaining characters. The purpose of this is such that the leading
+    // character can be painted differently from the remaining characters.
+    pub visual_jump_labels: [Vec<Overlay>; 3],
+    pub in_visual_jump_mode: bool,
 }
 
 /// Inlay hints for a single `(Document, View)` combo.
@@ -733,6 +751,8 @@ impl Document {
             syn_loader,
             previous_diagnostic_id: None,
             pull_diagnostic_controller: TaskController::new(),
+            visual_jump_labels: [vec![], vec![], vec![]],
+            in_visual_jump_mode: false,
         }
     }
 
