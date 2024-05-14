@@ -19,6 +19,7 @@ use helix_core::{
 use std::{
     collections::{HashMap, VecDeque},
     fmt,
+ rc::Rc,
 };
 
 const JUMP_LIST_CAPACITY: usize = 30;
@@ -436,29 +437,29 @@ impl View {
             text_annotations.add_overlay(labels, style);
         }
 
-        let mut add_overlay = |overlays: Rc<[Overlay]>, style| {
-            if !overlays.is_empty() {
-                text_annotations.add_overlay(overlays, style);
-            }
-        };
+        // let mut add_overlay = |overlays: Rc<[Overlay]>, style| {
+        //    if !overlays.is_empty() {
+        //        text_annotations.add_overlay(overlays, style);
+        //    }
+        // };
 
         let try_get_style =
             |scope: &str| theme.and_then(|t| t.find_scope_index(scope)).map(Highlight);
 
         // Overlays are added from lowest priority to highest, such that higher priority
         // overlays can overwrite the lower ones.
-        add_overlay(
-            self.visual_jump_labels[2].clone(),
-            try_get_style("ui.virtual.jump.multi.rest"),
-        );
-        add_overlay(
-            self.visual_jump_labels[1].clone(),
-            try_get_style("ui.virtual.jump.multi.first"),
-        );
-        add_overlay(
-            self.visual_jump_labels[0].clone(),
-            try_get_style("ui.virtual.jump.single"),
-        );
+        // add_overlay(
+        //    self.visual_jump_labels[2].clone(),
+        //    try_get_style("ui.virtual.jump.multi.rest"),
+        // );
+        // add_overlay(
+        //    self.visual_jump_labels[1].clone(),
+        //    try_get_style("ui.virtual.jump.multi.first"),
+        // );
+        // add_overlay(
+        //    self.visual_jump_labels[0].clone(),
+        //    try_get_style("ui.virtual.jump.single"),
+        // );
         text_annotations.reset_pos(self.offset.anchor);
 
         let DocumentInlayHints {
