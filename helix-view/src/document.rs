@@ -39,6 +39,7 @@ use helix_core::{
     history::{History, State, UndoKind},
     indent::{auto_detect_indent_style, IndentStyle},
     line_ending::auto_detect_line_ending,
+    modeline::Modeline,
     syntax::{self, config::LanguageConfiguration},
     ChangeSet, Diagnostic, LineEnding, Range, Rope, RopeBuilder, Selection, Syntax, Transaction,
 };
@@ -203,6 +204,8 @@ pub struct Document {
     pub focused_at: std::time::Instant,
 
     pub readonly: bool,
+
+    modeline: Modeline,
 
     /// Annotations for LSP document color swatches
     pub color_swatches: Option<DocumentColorSwatches>,
@@ -690,6 +693,7 @@ impl Document {
         let line_ending = config.load().default_line_ending.into();
         let changes = ChangeSet::new(text.slice(..));
         let old_state = None;
+        let modeline = Modeline::parse(text.slice(..));
 
         Self {
             id: DocumentId::default(),
@@ -725,6 +729,7 @@ impl Document {
             focused_at: std::time::Instant::now(),
             readonly: false,
             jump_labels: HashMap::new(),
+            modeline,
             color_swatches: None,
             color_swatch_controller: TaskController::new(),
             syn_loader,
@@ -1144,9 +1149,15 @@ impl Document {
         &self,
         loader: &syntax::Loader,
     ) -> Option<Arc<syntax::config::LanguageConfiguration>> {
-        let language = loader
-            .language_for_filename(self.path.as_ref()?)
-            .or_else(|| loader.language_for_shebang(self.text().slice(..)))?;
+        let language = self
+            .modeline
+            .language()
+            .and_then(|language| loader.language_for_name(language))
+            .or_else(|| {
+                loader
+                    .language_for_filename(self.path.as_ref()?)
+                    .or_else(|| loader.language_for_shebang(self.text().slice(..)))
+            })?;
 
         Some(loader.language(language).config().clone())
     }
@@ -1155,7 +1166,9 @@ impl Document {
     /// configured in `languages.toml`, with a fallback to tabs if it isn't specified. Line ending
     /// is likewise auto-detected, and will remain unchanged if no line endings were detected.
     pub fn detect_indent_and_line_ending(&mut self) {
-        self.indent_style = if let Some(indent_style) = self.editor_config.indent_style {
+        self.indent_style = if let Some(indent_style) = self.modeline.indent_style() {
+            indent_style
+        } else if let Some(indent_style) = self.editor_config.indent_style {
             indent_style
         } else {
             auto_detect_indent_style(&self.text).unwrap_or_else(|| {
