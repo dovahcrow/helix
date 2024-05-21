@@ -989,7 +989,7 @@ pub enum PopupBorderConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            evil: true,
+            evil: false,
             scrolloff: 5,
             scroll_lines: 3,
             mouse: true,
@@ -1049,6 +1049,15 @@ impl Default for Config {
             clipboard_provider: ClipboardProvider::default(),
             editor_config: true,
         }
+    }
+}
+
+impl Config {
+    pub fn default_evil() -> Self {
+        let mut config = Config::default();
+        config.evil = true;
+        config.statusline.mode = ModeConfig::default_evil();
+        return config;
     }
 }
 
