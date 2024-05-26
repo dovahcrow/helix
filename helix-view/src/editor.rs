@@ -571,6 +571,8 @@ impl StatusLineConfig {
             ],
             separator: String::from("│"),
             mode: ModeConfig::default_evil(),
+            diagnostics: vec![Severity::Warning, Severity::Error],
+            workspace_diagnostics: vec![Severity::Warning, Severity::Error],
         }
     }
 }
