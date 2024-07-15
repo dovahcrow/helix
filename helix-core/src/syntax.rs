@@ -791,6 +791,11 @@ impl OverlayHighlighter {
 }
 
 #[derive(Debug)]
+pub struct ContextQuery {
+    pub query: Query,
+}
+
+#[derive(Debug)]
 pub enum CapturedNode<'a> {
     Single(Node<'a>),
     /// Guaranteed to be not empty

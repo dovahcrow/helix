@@ -1,4 +1,9 @@
-use crate::{auto_pairs::AutoPairs, diagnostic::Severity, Language};
+use crate::{
+    auto_pairs::AutoPairs,
+    diagnostic::Severity,
+    syntax::{ContextQuery, OnceCell},
+    Language,
+};
 
 use globset::GlobSet;
 use helix_stdx::rope;
@@ -66,9 +71,10 @@ pub struct LanguageConfiguration {
 
     pub grammar: Option<String>, // tree-sitter grammar name, defaults to language_id
 
-    // content_regex
     #[serde(default, skip_serializing, deserialize_with = "deserialize_regex")]
     pub injection_regex: Option<rope::Regex>,
+
+    // content_regex
     // first_line_regex
     //
     #[serde(
@@ -83,6 +89,8 @@ pub struct LanguageConfiguration {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub debugger: Option<DebugAdapterConfig>,
+    #[serde(skip)]
+    pub(crate) context_query: OnceCell<Option<ContextQuery>>,
 
     /// Automatic insertion of pairs to parentheses, brackets,
     /// etc. Defaults to true. Optionally, this can be a list of 2-tuples
@@ -104,6 +112,15 @@ impl LanguageConfiguration {
     pub fn language(&self) -> Language {
         // This value must be set by `super::Loader::new`.
         self.language.unwrap()
+    }
+
+    pub fn context_query(&self) -> Option<&ContextQuery> {
+        self.context_query
+            .get_or_init(|| {
+                self.load_query("context.scm")
+                    .map(|query| ContextQuery { query })
+            })
+            .as_ref()
     }
 }
 
