@@ -3,6 +3,7 @@ use helix_view::document::Mode;
 use helix_view::events::{
     ConfigDidChange, DiagnosticsDidChange, DocumentDidChange, DocumentDidClose, DocumentDidOpen,
     DocumentFocusLost, LanguageServerExited, LanguageServerInitialized, SelectionDidChange,
+    EditorConfigDidChange,
 };
 
 use crate::commands;
@@ -20,6 +21,7 @@ pub fn register() {
     register_event::<PostCommand>();
     register_event::<DocumentDidOpen>();
     register_event::<DocumentDidChange>();
+    register_event::<EditorConfigDidChange>();
     register_event::<DocumentDidClose>();
     register_event::<DocumentFocusLost>();
     register_event::<SelectionDidChange>();
