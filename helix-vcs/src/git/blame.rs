@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use anyhow::Result;
 use gix::blame::Options;
-use gix::date::Time;
+use gix::date::parse;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -60,7 +60,7 @@ impl FileBlame {
 
         let message = commit.as_ref().and_then(|c| c.message().ok());
         let author = commit.as_ref().and_then(|c| c.author().ok());
-        let time: Option<Time> = author.and_then(|a| a.time.parse().ok());
+        let time = author.map(|a| parse(a.time, None).ok()).flatten();
 
         let line_blame = LineBlame {
             commit_hash: commit
