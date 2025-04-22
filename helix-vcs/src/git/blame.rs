@@ -1,5 +1,7 @@
 use anyhow::Context as _;
 use anyhow::Result;
+use gix::blame::Options;
+use gix::date::parse;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -58,6 +60,7 @@ impl FileBlame {
 
         let message = commit.as_ref().and_then(|c| c.message().ok());
         let author = commit.as_ref().and_then(|c| c.author().ok());
+        let time = author.map(|a| parse(a.time, None).ok()).flatten();
 
         let line_blame = LineBlame {
             commit_hash: commit
@@ -65,12 +68,12 @@ impl FileBlame {
                 .and_then(|c| c.short_id().map(|id| id.to_string()).ok()),
             author_name: author.map(|a| a.name.to_string()),
             author_email: author.map(|a| a.email.to_string()),
-            commit_date: author.map(|a| a.time.format(gix::date::time::format::SHORT)),
+            commit_date: time.map(|a| a.format(gix::date::time::format::SHORT)),
             commit_message: message.as_ref().map(|msg| msg.title.to_string()),
             commit_body: message
                 .as_ref()
                 .and_then(|msg| msg.body.map(|body| body.to_string())),
-            time_stamp: author.map(|a| (a.time.seconds, a.time.offset)),
+            time_stamp: time.map(|a| (a.seconds, a.offset)),
             time_ago: None,
         };
 
@@ -89,23 +92,11 @@ impl FileBlame {
         let repo = thread_safe_repo.to_thread_local();
         let head = repo.head()?.peel_to_commit_in_place()?.id;
 
-        // TODO: this iterator has a performane issue for large repos
-        // It was replaced in a new (yet unreleased) version of `gix`.
-        //
-        // Update to the new version once it releases.
-        //
-        // More info: https://github.com/helix-editor/helix/pull/13133#discussion_r2008611830
-        let traverse = gix::traverse::commit::topo::Builder::from_iters(
-            &repo.objects,
-            [head],
-            None::<Vec<gix::ObjectId>>,
-        )
-        .build()?;
-
         let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
         let file_blame = gix::blame::file(
             &repo.objects,
-            traverse.into_iter(),
+            head,
+            None,
             &mut resource_cache,
             // bstr always uses unix separators
             &gix::path::to_unix_separators_on_windows(gix::path::try_into_bstr(
@@ -115,7 +106,9 @@ impl FileBlame {
                         .context("Could not get the parent path of the repo")?,
                 )?,
             )?),
-            None,
+            Options {
+                ..Default::default()
+            },
         )?
         .entries;
 
