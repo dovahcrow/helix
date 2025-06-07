@@ -143,6 +143,7 @@ pub struct Document {
     pub(crate) id: DocumentId,
     text: Rope,
     selections: HashMap<ViewId, Selection>,
+    selections_history: HashMap<ViewId, SelectionHistory>,
     view_data: HashMap<ViewId, ViewData>,
     pub active_snippet: Option<ActiveSnippet>,
 
@@ -233,6 +234,33 @@ pub struct Document {
     pub in_visual_jump_mode: bool,
     // when fetching blame on-demand, if this field is `true` we request the blame for this document again
     pub is_blame_potentially_out_of_date: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SelectionDirection {
+    Undo(usize),
+    Redo(usize),
+}
+
+#[derive(Debug)]
+pub struct SelectionHistory {
+    selections: Vec<Selection>,
+    current: usize,
+}
+
+impl SelectionHistory {
+    pub fn goto(&mut self, direction: SelectionDirection) -> Option<&Selection> {
+        let mut position = match direction {
+            SelectionDirection::Undo(count) => self.current.checked_sub(count)?,
+            SelectionDirection::Redo(count) => self.current.checked_add(count)?,
+        };
+        let max = self.selections.len() - 1;
+        if position > max {
+            position = max
+        }
+        self.current = position;
+        self.selections.get(self.current)
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -338,6 +366,7 @@ impl fmt::Debug for Document {
             .field("inlay_hints_oudated", &self.inlay_hints_oudated)
             .field("text_annotations", &self.inlay_hints)
             .field("view_data", &self.view_data)
+            .field("selections_history", &self.selections_history)
             .field("path", &self.path)
             .field("encoding", &self.encoding)
             .field("restore_cursor", &self.restore_cursor)
@@ -738,6 +767,7 @@ impl Document {
             has_bom,
             text,
             selections: HashMap::default(),
+            selections_history: HashMap::default(),
             inlay_hints: HashMap::default(),
             inlay_hints_oudated: false,
             view_data: Default::default(),
@@ -1372,15 +1402,41 @@ impl Document {
         Ok(())
     }
 
-    /// Select text within the [`Document`].
-    pub fn set_selection(&mut self, view_id: ViewId, selection: Selection) {
+    fn select(&mut self, view_id: ViewId, selection: Selection) {
         // TODO: use a transaction?
-        self.selections
-            .insert(view_id, selection.ensure_invariants(self.text().slice(..)));
+        self.selections.insert(view_id, selection);
         helix_event::dispatch(SelectionDidChange {
             doc: self,
             view: view_id,
         })
+    }
+
+    /// Select text within the [`Document`].
+    pub fn set_selection(&mut self, view_id: ViewId, selection: Selection) {
+        // TODO: use a transaction?
+        let selection = selection.ensure_invariants(self.text().slice(..));
+        self.save_selection_to_history(view_id, selection.clone());
+        self.select(view_id, selection);
+    }
+
+    fn save_selection_to_history(&mut self, view_id: ViewId, selection: Selection) {
+        let entry = self
+            .selections_history
+            .entry(view_id)
+            .or_insert(SelectionHistory {
+                selections: vec![],
+                current: 0,
+            });
+        entry.selections.push(selection);
+        entry.current = entry.selections.len() - 1;
+    }
+
+    pub fn select_history(&mut self, view_id: ViewId, direction: SelectionDirection) {
+        self.selections_history
+            .get_mut(&view_id)
+            .and_then(|history| history.goto(direction).cloned())
+            .into_iter()
+            .for_each(|selection| self.select(view_id, selection));
     }
 
     /// Find the origin selection of the text in a document, i.e. where
@@ -1426,6 +1482,7 @@ impl Document {
     /// Remove a view's selection and inlay hints from this document.
     pub fn remove_view(&mut self, view_id: ViewId) {
         self.selections.remove(&view_id);
+        self.selections_history.remove(&view_id);
         self.inlay_hints.remove(&view_id);
         self.jump_labels.remove(&view_id);
     }
@@ -1470,6 +1527,9 @@ impl Document {
                 // Ensure all selections across all views still adhere to invariants.
                 .ensure_invariants(self.text.slice(..));
         }
+
+        // Reset the selection history after any change
+        self.selections_history.clear();
 
         for view_data in self.view_data.values_mut() {
             view_data.view_position.anchor = transaction
