@@ -35,6 +35,75 @@ pub static BASE16_DEFAULT_THEME: Lazy<Theme> = Lazy::new(|| Theme {
     ..Theme::from(BASE16_DEFAULT_THEME_DATA.clone())
 });
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Mode {
+    Dark,
+    Light,
+}
+
+#[cfg(feature = "term")]
+impl From<termina::escape::csi::ThemeMode> for Mode {
+    fn from(mode: termina::escape::csi::ThemeMode) -> Self {
+        match mode {
+            termina::escape::csi::ThemeMode::Dark => Self::Dark,
+            termina::escape::csi::ThemeMode::Light => Self::Light,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Config {
+    light: String,
+    dark: String,
+    /// A theme to choose when the terminal did not declare either light or dark mode.
+    /// When not specified the dark theme is preferred.
+    fallback: Option<String>,
+}
+
+impl Config {
+    pub fn choose(&self, preference: Option<Mode>) -> &str {
+        match preference {
+            Some(Mode::Light) => &self.light,
+            Some(Mode::Dark) => &self.dark,
+            None => self.fallback.as_ref().unwrap_or(&self.dark),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Config {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged, deny_unknown_fields, rename_all = "kebab-case")]
+        enum InnerConfig {
+            Constant(String),
+            Adaptive {
+                dark: String,
+                light: String,
+                fallback: Option<String>,
+            },
+        }
+
+        let inner = InnerConfig::deserialize(deserializer)?;
+
+        let (light, dark, fallback) = match inner {
+            InnerConfig::Constant(theme) => (theme.clone(), theme.clone(), None),
+            InnerConfig::Adaptive {
+                light,
+                dark,
+                fallback,
+            } => (light, dark, fallback),
+        };
+
+        Ok(Self {
+            light,
+            dark,
+            fallback,
+        })
+    }
+}
 #[derive(Clone, Debug)]
 pub struct Loader {
     /// Theme directories to search from highest to lowest priority
@@ -254,6 +323,7 @@ impl<'de> Deserialize<'de> for Theme {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn build_theme_values(
     mut values: Map<String, Value>,
 ) -> (
@@ -285,24 +355,23 @@ fn build_theme_values(
     styles.reserve(values.len());
     scopes.reserve(values.len());
     highlights.reserve(values.len());
-
     for (i, style) in values
         .remove("rainbow")
         .and_then(|value| match palette.parse_style_array(value) {
             Ok(styles) => Some(styles),
             Err(err) => {
-                warn!("{}", err);
+                warnings.push(err);
                 None
             }
         })
         .unwrap_or_else(default_rainbow)
-        .iter()
+        .into_iter()
         .enumerate()
     {
-        let name = format!("rainbow.{}", i);
-        styles.insert(name.clone(), *style);
+        let name = format!("rainbow.{i}");
+        styles.insert(name.clone(), style);
         scopes.push(name);
-        highlights.push(*style);
+        highlights.push(style);
         rainbow_length += 1;
     }
 
@@ -321,6 +390,16 @@ fn build_theme_values(
     (styles, scopes, highlights, warnings, rainbow_length)
 }
 
+fn default_rainbow() -> Vec<Style> {
+    vec![
+        Style::default().fg(Color::Red),
+        Style::default().fg(Color::Yellow),
+        Style::default().fg(Color::Green),
+        Style::default().fg(Color::Blue),
+        Style::default().fg(Color::Cyan),
+        Style::default().fg(Color::Magenta),
+    ]
+}
 impl Theme {
     /// To allow `Highlight` to represent arbitrary RGB colors without turning it into an enum,
     /// we interpret the last 256^3 numbers as RGB.
@@ -441,17 +520,6 @@ impl Theme {
     pub fn get_rainbow(&self, index: usize) -> Style {
         self.highlights[index % self.rainbow_length]
     }
-}
-
-fn default_rainbow() -> Vec<Style> {
-    vec![
-        Style::default().fg(Color::Red),
-        Style::default().fg(Color::Yellow),
-        Style::default().fg(Color::Green),
-        Style::default().fg(Color::Blue),
-        Style::default().fg(Color::Cyan),
-        Style::default().fg(Color::Magenta),
-    ]
 }
 
 struct ThemePalette {
