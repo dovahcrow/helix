@@ -16,6 +16,19 @@
 
 </div>
 
+** Helix, but with more PR included **
+Rationale: I want to use helix but I want features from PRs which are currently under review or rejected.
+
+PR list:
+  * Add undo_selection and redo_selection #13731
+  * feat!: add basic support for icons #12369
+  * feat(core): add tree-sitter-breadcrumbs command #13492
+  * File explorer and tree helper (v3) #5768
+  * feat: Inline Git Blame #13133
+  * Enhanced jump mode (based on #3791) #5340
+
+I will sync with the master branch periodically.
+
 ![Screenshot](./screenshot.png)
 
 A [Kakoune](https://github.com/mawww/kakoune) / [Neovim](https://github.com/neovim/neovim) inspired editor, written in Rust.
