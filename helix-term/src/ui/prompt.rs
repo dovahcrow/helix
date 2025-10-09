@@ -682,11 +682,9 @@ impl Component for Prompt {
                         self.recalculate_completion(cx.editor);
                     } else {
                         // TODO: Save in history?
-                        (self.callback_fn)(
-                            cx,
-                            &self.completion[index].1.content,
-                            PromptEvent::Validate,
-                        );
+                        if let Some(x) = self.completion.get(index) {
+                            (self.callback_fn)(cx, &x.1.content, PromptEvent::Validate);
+                        }
                         return close_fn;
                     }
                 } else {
